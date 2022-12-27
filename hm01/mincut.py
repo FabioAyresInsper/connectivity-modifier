@@ -1,20 +1,23 @@
+# pylint: disable=missing-docstring, invalid-name, fixme
+import logging
+import os
+import re
+import subprocess
 from dataclasses import dataclass
-import coloredlogs, logging
-from typing import List, Tuple, Union
+from typing import List
+
+from .context import context
 
 # from hm01.graph import Graph, RealizedSubgraph
 
-from .context import context
-import subprocess
-import re
-import os
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class MincutResult:
-    # FIXME: these are misnomers, "light_partition" is not guaranteed to have fewer nodes than "heavy_partition"
+    # FIXME: these are misnomers, "light_partition" is not guaranteed
+    # to have fewer nodes than "heavy_partition"
     light_partition: List[int]  # 0 labeled nodes
     heavy_partition: List[int]  # 1 labeled nodes
     cut_size: int

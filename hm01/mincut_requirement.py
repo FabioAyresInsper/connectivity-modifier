@@ -1,15 +1,19 @@
+# pylint: disable=missing-docstring, invalid-name, fixme
 from __future__ import annotations
-from dataclasses import dataclass
+
 import math
+from dataclasses import dataclass
+from typing import Optional
+
 from hm01.clusterers.abstract_clusterer import AbstractClusterer
-from .clusterers.leiden_wrapper import LeidenClusterer
+
 from .clusterers.ikc_wrapper import IkcClusterer
-from typing import List, Optional, Tuple, Union, Dict, Deque
 
 
 @dataclass
 class MincutRequirement:
-    """A linear combination of the log10 cluster size, mcd of the cluster, and the k given in the input
+    """A linear combination of the log10 cluster size, mcd of the cluster,
+    and the k given in the input.
     """
 
     log10: float
@@ -19,14 +23,18 @@ class MincutRequirement:
 
     def is_sane(self, clusterer: AbstractClusterer):
         """Check if the mincut requirement is reasonable"""
-        if self.log10 <= 0 and self.mcd <= 0 and self.k <= 0 and self.constant <= 0:
+        if self.log10 <= 0 and self.mcd <= 0 \
+            and self.k <= 0 and self.constant <= 0:
             return False
         if not isinstance(clusterer, IkcClusterer):
             return self.k == 0
         return True
 
     def validity_threshold(
-        self, clusterer: AbstractClusterer, cluster, mcd_override: Optional[int] = None
+        self,
+        clusterer: AbstractClusterer,
+        cluster,
+        mcd_override: Optional[int] = None,
     ) -> float:
         # TODO: mcd_override is kind of a hack
         log10 = math.log10(cluster.n()) if cluster.n() > 0 else 0
@@ -60,7 +68,7 @@ class MincutRequirement:
         def one_of(words, s):
             for word in words:
                 if s.startswith(word):
-                    return word, s[len(word) :]
+                    return word, s[len(word):]
             raise ValueError(f"Expected one of {words}, got {s}")
 
         log10 = 0

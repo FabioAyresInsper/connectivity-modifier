@@ -1,9 +1,11 @@
+# pylint: disable=missing-docstring, invalid-name, fixme
 from __future__ import annotations
-from hm01.graph import RealizedSubgraph
 
-from hm01.mincut_requirement import MincutRequirement
-from hm01.clusterers.abstract_clusterer import AbstractClusterer
 from heapdict import heapdict
+
+from hm01.clusterers.abstract_clusterer import AbstractClusterer
+from hm01.graph import RealizedSubgraph
+from hm01.mincut_requirement import MincutRequirement
 
 
 def prune_graph(
@@ -28,7 +30,8 @@ def prune_graph(
             if neighbor in degrees:
                 degrees[neighbor] -= 1
             else:
-                # TODO: this else case should be not needed, but still kept here for defensive programming
+                # TODO: this else case should be not needed,
+                # but still kept here for defensive programming
                 degrees[neighbor] = graph.degree(neighbor) - 1
         graph.remove_node(node)
         deleted_nodes += 1

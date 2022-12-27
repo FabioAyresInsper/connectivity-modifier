@@ -1,27 +1,35 @@
+# pylint: disable=missing-docstring, invalid-name, fixme
 from __future__ import annotations
+
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing_extensions import Self
+from functools import cache, cached_property
+from typing import Dict, Iterator, List, Tuple, Union
+
+import igraph as ig
 import networkit as nk
-from collections import defaultdict
-from typing import Dict, Iterator, List, Sequence, Tuple, Union
+from structlog import get_logger
 
 from hm01.clusterers.abstract_clusterer import AbstractClusterer
+
 from . import mincut
 from .context import context
-from structlog import get_logger
-from functools import cache, cached_property
-from typing import Protocol
 
 log = get_logger()
 
-# TODO: AbstractGraph type should incorporate all duplicate code of all the Graph classes
-# Also, AbstractGraph should replace most of the Union[RealizedSubgraph, Graph] types
-class AbstractGraph:
-    hydrator : List[int]
-    index : str
 
-    def intangible_subgraph(self, nodes: List[int], suffix: str) -> IntangibleSubgraph:
+# TODO: AbstractGraph type should incorporate all duplicate code
+# of all the Graph classes. Also, AbstractGraph should replace most
+# of the Union[RealizedSubgraph, Graph] types
+class AbstractGraph:
+    hydrator: List[int]
+    index: str
+
+    def intangible_subgraph(
+        self,
+        nodes: List[int],
+        suffix: str,
+    ) -> IntangibleSubgraph:
         return IntangibleSubgraph(nodes, self.index + suffix)
 
     @abstractmethod
@@ -48,16 +56,21 @@ class AbstractGraph:
         return sorted([self.degree(u) for u in self.nodes()])
 
     def intangible_subgraph_from_compact(self, ids: List[int], suffix: str):
-        """Create an intangible subgraph from a list of ids that represent nodes in the compacted (i.e., made continuous) graph
+        """Create an intangible subgraph from a list of ids that represent
+        nodes in the compacted (i.e., made continuous) graph.
         """
-        return self.intangible_subgraph([self.hydrator[i] for i in ids], suffix)
+        return self.intangible_subgraph(
+            [self.hydrator[i] for i in ids],
+            suffix,
+        )
 
     def find_clusters(
-        self, clusterer: AbstractClusterer, with_singletons: bool = True
-    ) -> Iterator[IntangibleSubgraph]:
+            self,
+            clusterer: AbstractClusterer,
+            with_singletons: bool = True) -> Iterator[IntangibleSubgraph]:
         """Find clusters using the given clusterer"""
         log.info(
-            f"Finding clusters using clusterer",
+            "Finding clusters using clusterer",
             id=self.index,
             n=self.n(),
             m=self.m(),
@@ -67,6 +80,7 @@ class AbstractGraph:
             return clusterer.cluster(self)
         else:
             return clusterer.cluster_without_singletons(self)
+
 
 class Graph(AbstractGraph):
     """Wrapped graph over a networkit graph with an ID label"""
@@ -78,7 +92,13 @@ class Graph(AbstractGraph):
         self.construct_hydrator()
 
     def to_realized_subgraph(self):
-        return RealizedSubgraph(IntangibleSubgraph(list(range(self.n())), self.index), self)
+        return RealizedSubgraph(
+            IntangibleSubgraph(
+                list(range(self.n())),
+                self.index,
+            ),
+            self,
+        )
 
     @staticmethod
     def from_nk(graph, index=""):
@@ -96,7 +116,7 @@ class Graph(AbstractGraph):
     def from_metis(path):
         metis_reader = nk.graphio.METISGraphReader()
         return Graph.from_nk(metis_reader.read(path))
-        
+
     def n(self) -> int:
         """Number of nodes"""
         return self._data.numberOfNodes()
@@ -122,8 +142,12 @@ class Graph(AbstractGraph):
         self._data.removeNode(u)
 
     def cut_by_mincut(
-        self, mincut_res: mincut.MincutResult
-    ) -> Tuple[Union[Graph, RealizedSubgraph], Union[Graph, RealizedSubgraph]]:
+        self,
+        mincut_res: mincut.MincutResult,
+    ) -> Tuple[ \
+        Union[Graph, RealizedSubgraph], \
+        Union[Graph, RealizedSubgraph] \
+    ]:
         """Cut the graph by the mincut result"""
         light = self.induced_subgraph(mincut_res.light_partition, "a")
         heavy = self.induced_subgraph(mincut_res.heavy_partition, "b")
@@ -138,9 +162,13 @@ class Graph(AbstractGraph):
         n = self.n()
         hydrator = [0] * n
         continuous_ids = self.continuous_ids  # .items()
-        assert len(continuous_ids) == n, f"Expected {n} ids, got {len(continuous_ids)}"
+
+        assert len(continuous_ids) == n, \
+            f"Expected {n} ids, got {len(continuous_ids)}"
+
         for old_id, new_id in continuous_ids.items():
             hydrator[new_id] = old_id
+
         self.hydrator = hydrator
 
     def induced_subgraph(self, ids: List[int], suffix: str):
@@ -155,7 +183,10 @@ class Graph(AbstractGraph):
     def as_compact_edgelist_filepath(self):
         """Get a filepath to the graph as a compact/continuous edgelist file"""
         p = context.request_graph_related_path(self, "edgelist")
-        towrite = nk.graphtools.getCompactedGraph(self._data, self.continuous_ids)
+        towrite = nk.graphtools.getCompactedGraph(
+            self._data,
+            self.continuous_ids,
+        )
         nk.graphio.writeGraph(towrite, p, nk.Format.EdgeListTabZero)
         return p
 
@@ -177,11 +208,12 @@ class Graph(AbstractGraph):
         ls = g.count_edges(self)
         big_l = self.m()
         ds = sum(self._data.degree(n) for n in g.subset)
-        return (ls / big_l) - (ds / (2 * big_l)) ** 2
+        return (ls / big_l) - (ds / (2 * big_l))**2
 
     @staticmethod
     def from_space_edgelist(filepath: str, index=""):
-        return Graph(nk.graphio.readGraph(filepath, nk.Format.EdgeListSpaceZero), index)
+        return Graph(
+            nk.graphio.readGraph(filepath, nk.Format.EdgeListSpaceZero), index)
 
     @staticmethod
     def from_erdos_renyi(n, p, index=""):
@@ -202,16 +234,13 @@ class Graph(AbstractGraph):
 
     @staticmethod
     def from_clique(n: int, index=""):
-        return Graph.from_edges(
-            [(i, j) for i in range(n - 1) for j in range(i + 1, n)], index
-        )
+        return Graph.from_edges([(i, j) for i in range(n - 1)
+                                 for j in range(i + 1, n)], index)
 
-    def to_intangible(self, graph):
+    def to_intangible(self, _):
         return IntangibleSubgraph(list(self.nodes()), self.index)
 
     def to_igraph(self):
-        import igraph as ig
-
         cont_ids = nk.graphtools.getContinuousNodeIds(self._data)
         compact_graph = nk.graphtools.getCompactedGraph(self._data, cont_ids)
         edges = [(u, v) for u, v in compact_graph.iterEdges()]
@@ -274,7 +303,7 @@ class RealizedSubgraph(AbstractGraph):
     def neighbors(self, u) -> Iterator[int]:
         yield from self.adj[u]
 
-    def to_intangible(self, graph):
+    def to_intangible(self, _):
         return IntangibleSubgraph(list(self.nodeset), self.index)
 
     def remove_node(self, u: int):
@@ -304,7 +333,6 @@ class RealizedSubgraph(AbstractGraph):
     def to_igraph(self):
         if self._dirty:
             self.recompact()
-        import igraph as ig
 
         edges = []
         for u in self.nodes():
@@ -318,17 +346,17 @@ class RealizedSubgraph(AbstractGraph):
         if self._dirty:
             self.recompact()
         p = context.request_graph_related_path(self, "metis")
-        with open(p, "w+") as f:
+        with open(p, "w+", encoding="utf-8") as f:
             f.write(f"{self.n()} {self.m()}\n")
             for u in self.compacted:
-                f.write(" ".join([str(v+1) for v in u]) + "\n")
+                f.write(" ".join([str(v + 1) for v in u]) + "\n")
         return p
 
     def as_compact_edgelist_filepath(self):
         if self._dirty:
             self.recompact()
         p = context.request_graph_related_path(self, "edgelist")
-        with open(p, "w+") as f:
+        with open(p, "w+", encoding="utf-8") as f:
             for u, adj in enumerate(self.compacted):
                 for v in adj:
                     if u < v:
@@ -342,8 +370,12 @@ class RealizedSubgraph(AbstractGraph):
         self, mincut_res: mincut.MincutResult
     ) -> Tuple[Union[Graph, RealizedSubgraph], Union[Graph, RealizedSubgraph]]:
         """Cut the graph by the mincut result"""
-        light = RealizedSubgraph(IntangibleSubgraph(mincut_res.light_partition, self.index + "a"), self._graph)
-        heavy = RealizedSubgraph(IntangibleSubgraph(mincut_res.heavy_partition, self.index + "b"), self._graph)
+        light = RealizedSubgraph(
+            IntangibleSubgraph(mincut_res.light_partition, self.index + "a"),
+            self._graph)
+        heavy = RealizedSubgraph(
+            IntangibleSubgraph(mincut_res.heavy_partition, self.index + "b"),
+            self._graph)
         return light, heavy
 
     @property
@@ -351,6 +383,7 @@ class RealizedSubgraph(AbstractGraph):
         if self._dirty:
             self.recompact()
         return self.inv
+
 
 @dataclass
 class IntangibleSubgraph:
@@ -371,8 +404,7 @@ class IntangibleSubgraph:
 
     @staticmethod
     def from_assignment_pairs(
-        pairs: Iterator[Tuple[int, str]]
-    ) -> List[IntangibleSubgraph]:
+            pairs: Iterator[Tuple[int, str]]) -> List[IntangibleSubgraph]:
         clusters: Dict[str, IntangibleSubgraph] = {}
         for node, cluster in pairs:
             if cluster not in clusters:
@@ -400,7 +432,8 @@ class IntangibleSubgraph:
         return sum(1 for _ in self.edges(global_graph)) // 2
 
     def internal_degree(self, u, graph: Graph) -> int:
-        return sum(1 for v in graph._data.iterNeighbors(u) if v in self.nodeset)
+        return sum(1 for v in graph._data.iterNeighbors(u)
+                   if v in self.nodeset)
 
     def count_mcd(self, graph: Graph) -> int:
         if self.n() == 0:
