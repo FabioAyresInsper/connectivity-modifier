@@ -2,9 +2,7 @@
 name = "connectivity-modifier"
 version = "0.1.0b13"
 description = "connectivity modifier"
-packages = [
-	{ include = "hm01" }
-]
+packages = [{ include = "hm01" }]
 include = ["third_party/ikc.py"]
 authors = ["runeblaze <runeblaze@excite.co.jp>"]
 readme = "README.md"
